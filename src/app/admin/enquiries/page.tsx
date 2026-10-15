@@ -13,6 +13,7 @@ type Enquiry = {
   product_id: string | null;
   message: string;
   status: string;
+  enquiry_type?: string | null;
   created_at: string;
 };
 
@@ -30,13 +31,38 @@ const buttonStyle: React.CSSProperties = {
   cursor: "pointer",
   fontSize: "13px",
   textDecoration: "none",
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
 };
 
 const statuses = ["new", "contacted", "resolved", "closed"];
 
+function formatEnquiryType(item: Enquiry) {
+  if (item.enquiry_type === "custom_furniture") {
+    return "Custom Furniture Request";
+  }
+
+  if (item.product_id) {
+    return "Product Enquiry";
+  }
+
+  return "General Enquiry";
+}
+
+function whatsappLink(phone: string, message: string) {
+  const digits = phone.replace(/\D/g, "");
+  const normalized =
+    digits.startsWith("0") && digits.length === 10
+      ? `254${digits.slice(1)}`
+      : digits;
+
+  return `https://wa.me/${normalized}?text=${encodeURIComponent(message)}`;
+}
+
 export default function AdminEnquiriesPage() {
   const router = useRouter();
-  const supabase = createClient();
+  const [supabase] = useState(() => createClient());
 
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -45,6 +71,7 @@ export default function AdminEnquiriesPage() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const loadEnquiries = useCallback(async () => {
     const { data, error: queryError } = await supabase
@@ -65,9 +92,9 @@ export default function AdminEnquiriesPage() {
     let mounted = true;
 
     async function initialize() {
-      const { data: auth } = await supabase.auth.getUser();
+      const { data: auth, error: authError } = await supabase.auth.getUser();
 
-      if (!auth.user) {
+      if (authError || !auth.user) {
         router.replace("/admin/login");
         return;
       }
@@ -100,14 +127,16 @@ export default function AdminEnquiriesPage() {
         setEnquiries((enquiryResult.data ?? []) as Enquiry[]);
       }
 
-      if (!productResult.error) {
+      if (productResult.error) {
+        console.error("Could not load products:", productResult.error);
+      } else {
         setProducts((productResult.data ?? []) as Product[]);
       }
 
       setLoading(false);
     }
 
-    initialize();
+    void initialize();
 
     return () => {
       mounted = false;
@@ -124,12 +153,12 @@ export default function AdminEnquiriesPage() {
       .eq("id", id);
 
     if (updateError) {
-      setError(updateError.message);
+      setError(`Could not update enquiry status: ${updateError.message}`);
     } else {
       setEnquiries((current) =>
         current.map((item) =>
-          item.id === id ? { ...item, status } : item
-        )
+          item.id === id ? { ...item, status } : item,
+        ),
       );
     }
 
@@ -137,14 +166,13 @@ export default function AdminEnquiriesPage() {
   }
 
   async function deleteEnquiry(enquiry: Enquiry) {
-    if (
-      !window.confirm(
-        `Delete the enquiry from ${enquiry.customer_name}? This cannot be undone.`
-      )
-    ) {
-      return;
-    }
+    const confirmed = window.confirm(
+      `Delete the enquiry from ${enquiry.customer_name}? This cannot be undone.`,
+    );
 
+    if (!confirmed) return;
+
+    setDeletingId(enquiry.id);
     setError("");
 
     const { error: deleteError } = await supabase
@@ -153,38 +181,67 @@ export default function AdminEnquiriesPage() {
       .eq("id", enquiry.id);
 
     if (deleteError) {
-      setError(deleteError.message);
+      setError(`Could not delete enquiry: ${deleteError.message}`);
+      setDeletingId(null);
       return;
     }
 
     setEnquiries((current) =>
-      current.filter((item) => item.id !== enquiry.id)
+      current.filter((item) => item.id !== enquiry.id),
     );
+
+    setDeletingId(null);
   }
 
   const productName = (id: string | null) =>
-    products.find((product) => product.id === id)?.name ?? "General enquiry";
+    products.find((product) => product.id === id)?.name ??
+    (id ? "Product" : "No linked product");
+
+  const term = search.trim().toLowerCase();
 
   const filtered = enquiries.filter((item) => {
     const matchesStatus = filter === "all" || item.status === filter;
-    const term = search.toLowerCase();
 
-    const matchesSearch = [
+    const searchableValues = [
       item.customer_name,
       item.phone,
       item.email ?? "",
       item.message,
+      item.enquiry_type ?? "",
+      formatEnquiryType(item),
       productName(item.product_id),
-    ].some((value) => value.toLowerCase().includes(term));
+    ];
+
+    const matchesSearch =
+      !term ||
+      searchableValues.some((value) =>
+        value.toLowerCase().includes(term),
+      );
 
     return matchesStatus && matchesSearch;
   });
 
   const newCount = enquiries.filter((item) => item.status === "new").length;
 
+  const customCount = enquiries.filter(
+    (item) => item.enquiry_type === "custom_furniture",
+  ).length;
+
+  const productEnquiryCount = enquiries.filter(
+    (item) => item.product_id !== null,
+  ).length;
+
   if (loading) {
     return (
-      <main style={{ background: "#050505", color: "#fff", minHeight: "100vh", padding: "40px" }}>
+      <main
+        style={{
+          background: "#050505",
+          color: "#fff",
+          minHeight: "100vh",
+          padding: "40px",
+          fontFamily: "Arial, sans-serif",
+        }}
+      >
         Checking administrator access...
       </main>
     );
@@ -213,22 +270,44 @@ export default function AdminEnquiriesPage() {
         }}
       >
         <div>
-          <p style={{ color: "#999", fontSize: "12px", letterSpacing: "2px" }}>
+          <p
+            style={{
+              color: "#999",
+              fontSize: "12px",
+              letterSpacing: "2px",
+            }}
+          >
             SMART FURNITURES / ADMIN
           </p>
+
           <h1 style={{ fontSize: "30px", margin: "8px 0" }}>
             Customer Enquiries
           </h1>
+
           <p style={{ color: "#999", fontSize: "14px" }}>
-            Review customer messages and track follow-ups.
+            Review customer messages, custom furniture requests, and follow-ups.
           </p>
         </div>
 
-        <nav style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-          <Link href="/admin/dashboard" style={buttonStyle}>Dashboard</Link>
-          <Link href="/admin/products" style={buttonStyle}>Products</Link>
-          <Link href="/admin/categories" style={buttonStyle}>Categories</Link>
-          <Link href="/" style={buttonStyle}>Storefront</Link>
+        <nav
+          style={{
+            display: "flex",
+            gap: "8px",
+            flexWrap: "wrap",
+          }}
+        >
+          <Link href="/admin/dashboard" style={buttonStyle}>
+            Dashboard
+          </Link>
+          <Link href="/admin/products" style={buttonStyle}>
+            Products
+          </Link>
+          <Link href="/admin/categories" style={buttonStyle}>
+            Categories
+          </Link>
+          <Link href="/" style={buttonStyle}>
+            Storefront
+          </Link>
         </nav>
       </header>
 
@@ -238,6 +317,7 @@ export default function AdminEnquiriesPage() {
           style={{
             padding: "14px",
             marginBottom: "20px",
+            background: "#190c0c",
             border: "1px solid #633333",
             borderRadius: "6px",
             color: "#ff9999",
@@ -259,7 +339,8 @@ export default function AdminEnquiriesPage() {
         {[
           ["Total Enquiries", enquiries.length],
           ["New Enquiries", newCount],
-          ["Other Enquiries", enquiries.length - newCount],
+          ["Custom Requests", customCount],
+          ["Product Enquiries", productEnquiryCount],
         ].map(([label, value]) => (
           <div
             key={String(label)}
@@ -288,7 +369,7 @@ export default function AdminEnquiriesPage() {
           aria-label="Search enquiries"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search name, phone, email or message..."
+          placeholder="Search name, phone, email, type or message..."
           style={{
             flex: "1 1 260px",
             padding: "12px",
@@ -319,7 +400,11 @@ export default function AdminEnquiriesPage() {
           ))}
         </select>
 
-        <button type="button" onClick={loadEnquiries} style={buttonStyle}>
+        <button
+          type="button"
+          onClick={() => void loadEnquiries()}
+          style={buttonStyle}
+        >
           Refresh
         </button>
       </section>
@@ -337,115 +422,205 @@ export default function AdminEnquiriesPage() {
         >
           {enquiries.length === 0
             ? "No customer enquiries yet."
-            : "No enquiries match your search."}
+            : "No enquiries match your search or status filter."}
         </div>
       ) : (
         <section style={{ display: "grid", gap: "14px" }}>
-          {filtered.map((item) => (
-            <article
-              key={item.id}
-              style={{
-                padding: "22px",
-                background: "#101010",
-                border: "1px solid #292929",
-                borderRadius: "8px",
-              }}
-            >
-              <div
+          {filtered.map((item) => {
+            const isCustom = item.enquiry_type === "custom_furniture";
+
+            const badgeStyle: React.CSSProperties = {
+              display: "inline-block",
+              padding: "6px 10px",
+              marginBottom: "12px",
+              borderRadius: "4px",
+              border: `1px solid ${isCustom ? "#82652e" : "#444"}`,
+              background: isCustom ? "#211a0d" : "#171717",
+              color: isCustom ? "#e7c77e" : "#d0d0d0",
+              fontSize: "11px",
+              fontWeight: 700,
+              letterSpacing: "0.5px",
+            };
+
+            const replyMessage = [
+              `Hello ${item.customer_name},`,
+              "",
+              "Thank you for contacting Smart Furnitures.",
+              "We are following up on your enquiry.",
+              "",
+              item.message,
+            ].join("\n");
+
+            return (
+              <article
+                key={item.id}
                 style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  gap: "16px",
-                  flexWrap: "wrap",
+                  padding: "22px",
+                  background: "#101010",
+                  border: "1px solid #292929",
+                  borderRadius: "8px",
                 }}
               >
-                <div style={{ flex: "1 1 250px", minWidth: 0 }}>
-                  <h2 style={{ fontSize: "19px", margin: "0 0 10px" }}>
-                    {item.customer_name}
-                  </h2>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: "16px",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <div style={{ flex: "1 1 250px", minWidth: 0 }}>
+                    <span style={badgeStyle}>
+                      {formatEnquiryType(item)}
+                    </span>
 
-                  <p style={{ color: "#c5c5c5", margin: "6px 0", fontSize: "14px" }}>
-                    Phone:{" "}
-                    <a
-                      href={`tel:${item.phone}`}
-                      style={{ color: "#fff" }}
+                    <h2 style={{ fontSize: "19px", margin: "0 0 10px" }}>
+                      {item.customer_name}
+                    </h2>
+
+                    <p
+                      style={{
+                        color: "#c5c5c5",
+                        margin: "6px 0",
+                        fontSize: "14px",
+                      }}
                     >
-                      {item.phone}
-                    </a>
-                  </p>
-
-                  {item.email && (
-                    <p style={{ color: "#c5c5c5", margin: "6px 0", fontSize: "14px", overflowWrap: "anywhere" }}>
-                      Email:{" "}
-                      <a
-                        href={`mailto:${item.email}`}
-                        style={{ color: "#fff" }}
-                      >
-                        {item.email}
+                      Phone:{" "}
+                      <a href={`tel:${item.phone}`} style={{ color: "#fff" }}>
+                        {item.phone}
                       </a>
                     </p>
-                  )}
 
-                  <p style={{ color: "#999", fontSize: "13px", margin: "10px 0" }}>
-                    Product: {productName(item.product_id)}
-                  </p>
+                    {item.email && (
+                      <p
+                        style={{
+                          color: "#c5c5c5",
+                          margin: "6px 0",
+                          fontSize: "14px",
+                          overflowWrap: "anywhere",
+                        }}
+                      >
+                        Email:{" "}
+                        <a
+                          href={`mailto:${item.email}`}
+                          style={{ color: "#fff" }}
+                        >
+                          {item.email}
+                        </a>
+                      </p>
+                    )}
 
-                  <p style={{ color: "#c5c5c5", fontSize: "14px", lineHeight: 1.7, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
-                    {item.message}
-                  </p>
+                    {item.product_id && (
+                      <p
+                        style={{
+                          color: "#999",
+                          fontSize: "13px",
+                          margin: "10px 0",
+                        }}
+                      >
+                        Product: {productName(item.product_id)}
+                      </p>
+                    )}
 
-                  <p style={{ color: "#777", fontSize: "12px" }}>
-                    Received: {new Date(item.created_at).toLocaleString()}
-                  </p>
-                </div>
+                    <p
+                      style={{
+                        color: "#c5c5c5",
+                        fontSize: "14px",
+                        lineHeight: 1.7,
+                        whiteSpace: "pre-wrap",
+                        overflowWrap: "anywhere",
+                      }}
+                    >
+                      {item.message}
+                    </p>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: "10px", minWidth: "150px" }}>
-                  <label style={{ fontSize: "12px", color: "#999" }}>
-                    Enquiry status
-                  </label>
+                    <p style={{ color: "#777", fontSize: "12px" }}>
+                      Received: {new Date(item.created_at).toLocaleString()}
+                    </p>
+                  </div>
 
-                  <select
-                    aria-label={`Status for ${item.customer_name}`}
-                    value={item.status}
-                    disabled={updatingId === item.id}
-                    onChange={(event) =>
-                      updateStatus(item.id, event.target.value)
-                    }
+                  <div
                     style={{
-                      padding: "10px",
-                      background: "#171717",
-                      color: "#fff",
-                      border: "1px solid #444",
-                      borderRadius: "6px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "10px",
+                      minWidth: "170px",
                     }}
                   >
-                    {!statuses.includes(item.status) && (
-                      <option value={item.status}>{item.status}</option>
+                    <label
+                      style={{ fontSize: "12px", color: "#999" }}
+                      htmlFor={`status-${item.id}`}
+                    >
+                      Enquiry status
+                    </label>
+
+                    <select
+                      id={`status-${item.id}`}
+                      aria-label={`Status for ${item.customer_name}`}
+                      value={item.status}
+                      disabled={updatingId === item.id}
+                      onChange={(event) =>
+                        void updateStatus(item.id, event.target.value)
+                      }
+                      style={{
+                        padding: "10px",
+                        background: "#171717",
+                        color: "#fff",
+                        border: "1px solid #444",
+                        borderRadius: "6px",
+                      }}
+                    >
+                      {!statuses.includes(item.status) && (
+                        <option value={item.status}>{item.status}</option>
+                      )}
+                      {statuses.map((status) => (
+                        <option key={status} value={status}>
+                          {status.charAt(0).toUpperCase() + status.slice(1)}
+                        </option>
+                      ))}
+                    </select>
+
+                    {updatingId === item.id && (
+                      <span style={{ color: "#999", fontSize: "12px" }}>
+                        Saving status...
+                      </span>
                     )}
-                    {statuses.map((status) => (
-                      <option key={status} value={status}>
-                        {status.charAt(0).toUpperCase() + status.slice(1)}
-                      </option>
-                    ))}
-                  </select>
 
-                  {updatingId === item.id && (
-                    <span style={{ color: "#999", fontSize: "12px" }}>
-                      Saving status...
-                    </span>
-                  )}
+                    <a
+                      href={whatsappLink(item.phone, replyMessage)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        ...buttonStyle,
+                        background: "#123b25",
+                        borderColor: "#236b42",
+                      }}
+                    >
+                      Contact on WhatsApp
+                    </a>
 
-                  <button
-                    type="button"
-                    onClick={() => deleteEnquiry(item)}
-                    style={{ ...buttonStyle, color: "#ff9999", borderColor: "#633333" }}
-                  >
-                    Delete Enquiry
-                  </button>
+                    <button
+                      type="button"
+                      disabled={deletingId === item.id}
+                      onClick={() => void deleteEnquiry(item)}
+                      style={{
+                        ...buttonStyle,
+                        color: "#ff9999",
+                        borderColor: "#633333",
+                        opacity: deletingId === item.id ? 0.6 : 1,
+                        cursor:
+                          deletingId === item.id ? "not-allowed" : "pointer",
+                      }}
+                    >
+                      {deletingId === item.id
+                        ? "Deleting..."
+                        : "Delete Enquiry"}
+                    </button>
+                  </div>
                 </div>
-              </div>
-            </article>
-          ))}
+              </article>
+            );
+          })}
         </section>
       )}
     </main>

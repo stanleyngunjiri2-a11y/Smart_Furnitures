@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { FaInstagram, FaTiktok, FaWhatsapp } from "react-icons/fa";
+import { FaTiktok, FaWhatsapp } from "react-icons/fa";
 import {
   ArrowDownRight,
   ArrowRight,
@@ -40,7 +40,7 @@ const collections = [
     title: "Bedroom",
     subtitle: "Your own kind of calm.",
     image:
-      "https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=1000&q=85",
+      "https://images.unsplash.com/photo-1760072513376-67a46aab0fd1?auto=format&fit=crop&w=1000&q=85",
     className: "collection-bedroom",
     category: "All",
   },
@@ -49,7 +49,7 @@ const collections = [
     title: "Dining",
     subtitle: "Bring everyone together.",
     image:
-      "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1000&q=85",
+      "https://images.unsplash.com/photo-1721742147631-2bc56593b104?auto=format&fit=crop&w=1000&q=85",
     className: "collection-dining",
     category: "Tables",
   },
@@ -98,9 +98,7 @@ function WhatsAppLink({
     ? `Hello Smart Furnitures, I would like to enquire about ${productName}.`
     : "Hello Smart Furnitures, I would like to enquire about your furniture collection.";
 
-  const href = WHATSAPP_NUMBER
-    ? `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`
-    : `https://wa.me/?text=${encodeURIComponent(message)}`;
+  const href = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
 
   return (
     <a
@@ -147,31 +145,101 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
 function CustomFurnitureRequest() {
   const [furnitureType, setFurnitureType] = useState("Sofa");
   const [customerName, setCustomerName] = useState("");
+  const [phone, setPhone] = useState("");
   const [budget, setBudget] = useState("");
   const [dimensions, setDimensions] = useState("");
   const [details, setDetails] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [whatsappMessage, setWhatsappMessage] = useState("");
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
+    if (submitting) return;
+
+    const trimmedName = customerName.trim();
+    const trimmedPhone = phone.trim();
+    const trimmedDimensions = dimensions.trim();
+    const trimmedDetails = details.trim();
+
+    if (!trimmedName || !trimmedPhone) {
+      setErrorMessage("Please enter your name and phone number.");
+      return;
+    }
+
+    setSubmitting(true);
+    setSuccessMessage("");
+    setErrorMessage("");
+    setWhatsappMessage("");
+
     const message = [
-      "Hello Smart Furnitures!",
+      "CUSTOM FURNITURE REQUEST",
       "",
-      "I would like to request custom furniture.",
-      "",
-      `Name: ${customerName}`,
       `Furniture type: ${furnitureType}`,
       `Budget: ${budget ? `KSh ${budget}` : "Not specified"}`,
-      `Dimensions: ${dimensions || "Not specified"}`,
-      `Additional details: ${details || "Not specified"}`,
+      `Dimensions: ${trimmedDimensions || "Not specified"}`,
+      `Additional details: ${trimmedDetails || "Not specified"}`,
+    ].join("\n");
+
+    const whatsappText = [
+      "Hello Smart Furnitures!",
+      "",
+      "I have submitted a custom furniture request.",
+      "",
+      `Name: ${trimmedName}`,
+      `Phone: ${trimmedPhone}`,
+      `Furniture type: ${furnitureType}`,
+      `Budget: ${budget ? `KSh ${budget}` : "Not specified"}`,
+      `Dimensions: ${trimmedDimensions || "Not specified"}`,
+      `Additional details: ${trimmedDetails || "Not specified"}`,
       "",
       "Please contact me to discuss my request.",
     ].join("\n");
 
-    const whatsappUrl =
-      `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+    try {
+      const supabase = createClient();
 
-    window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+      const { error } = await supabase
+        .from("customer_enquiries")
+        .insert({
+          customer_name: trimmedName,
+          phone: trimmedPhone,
+          email: null,
+          product_id: null,
+          message,
+          status: "new",
+          enquiry_type: "custom_furniture",
+        });
+
+      if (error) {
+        console.error("Custom furniture submission failed:", error);
+        setErrorMessage(
+          "We couldn't save your request. Please try again or contact us on WhatsApp.",
+        );
+        return;
+      }
+
+      setSuccessMessage(
+        "Your custom furniture request has been submitted successfully.",
+      );
+      setWhatsappMessage(whatsappText);
+
+      setCustomerName("");
+      setPhone("");
+      setFurnitureType("Sofa");
+      setBudget("");
+      setDimensions("");
+      setDetails("");
+    } catch (error) {
+      console.error("Custom furniture submission error:", error);
+      setErrorMessage(
+        "Something went wrong while submitting your request. Please try again.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -187,8 +255,8 @@ function CustomFurnitureRequest() {
 
         <p>
           Looking for a particular size, finish or design?
-          Tell us what you have in mind and send your request
-          directly to our team on WhatsApp.
+          Tell us what you have in mind and submit your request
+          directly to our team.
         </p>
 
         <div className="custom-request-note">
@@ -213,6 +281,22 @@ function CustomFurnitureRequest() {
             placeholder="Enter your name"
             value={customerName}
             onChange={(event) => setCustomerName(event.target.value)}
+            maxLength={120}
+            required
+          />
+        </label>
+
+        <label htmlFor="custom-customer-phone">
+          PHONE NUMBER
+          <input
+            id="custom-customer-phone"
+            name="phone"
+            type="tel"
+            autoComplete="tel"
+            placeholder="e.g. 0712345678"
+            value={phone}
+            onChange={(event) => setPhone(event.target.value)}
+            maxLength={30}
             required
           />
         </label>
@@ -262,6 +346,7 @@ function CustomFurnitureRequest() {
               placeholder="e.g. 6 by 6 feet"
               value={dimensions}
               onChange={(event) => setDimensions(event.target.value)}
+              maxLength={300}
             />
           </label>
         </div>
@@ -275,17 +360,53 @@ function CustomFurnitureRequest() {
             placeholder="Describe your preferred colour, material, design or anything else we should know..."
             value={details}
             onChange={(event) => setDetails(event.target.value)}
+            maxLength={3000}
           />
         </label>
 
-        <button className="custom-request-submit" type="submit">
+        {successMessage && (
+          <div role="status" aria-live="polite">
+            <p style={{ color: "#4ade80" }}>{successMessage}</p>
+
+            {whatsappMessage && (
+              <a
+                className="custom-request-submit"
+                href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(whatsappMessage)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  textDecoration: "none",
+                  display: "flex",
+                  marginBottom: "16px",
+                }}
+              >
+                <FaWhatsapp size={19} aria-hidden="true" />
+                CONTINUE TO WHATSAPP
+                <ArrowUpRight size={17} aria-hidden="true" />
+              </a>
+            )}
+          </div>
+        )}
+
+        {errorMessage && (
+          <p role="alert" style={{ color: "#f87171" }}>
+            {errorMessage}
+          </p>
+        )}
+
+        <button
+          className="custom-request-submit"
+          type="submit"
+          disabled={submitting}
+          style={{ opacity: submitting ? 0.6 : 1 }}
+        >
           <FaWhatsapp size={19} aria-hidden="true" />
-          SEND REQUEST ON WHATSAPP
+          {submitting ? "SAVING REQUEST..." : "SUBMIT CUSTOM REQUEST"}
           <ArrowUpRight size={17} aria-hidden="true" />
         </button>
 
         <p className="custom-form-disclaimer">
-          Your request will open WhatsApp with your details ready to send.
+          Your request is saved before you continue to WhatsApp.
         </p>
       </form>
     </section>
@@ -300,7 +421,6 @@ export default function HomePage() {
   const [productsError, setProductsError] = useState(false);
   const [isStoreAdmin, setIsStoreAdmin] = useState(false);
 
-  // Verify the signed-in user's administrator membership.
   useEffect(() => {
     let cancelled = false;
 
@@ -339,7 +459,6 @@ export default function HomePage() {
     };
   }, []);
 
-  // Load published products from Supabase.
   useEffect(() => {
     let cancelled = false;
 
@@ -420,21 +539,17 @@ export default function HomePage() {
   const filteredProducts =
     activeCategory === "All"
       ? products
-      : products.filter(
-          (product) => product.category === activeCategory,
-        );
+      : products.filter((product) => product.category === activeCategory);
 
   const closeMenu = () => setMobileMenuOpen(false);
 
   return (
     <main className="luxury-site" id="home">
-      {/* ANNOUNCEMENT */}
       <div className="announcement-bar">
         <p>THOUGHTFULLY DESIGNED FURNITURE. TIMELESS BY NATURE.</p>
         <span>SMART FURNITURES</span>
       </div>
 
-      {/* HEADER */}
       <header className="site-header">
         <div className="header-inner">
           <Brand />
@@ -495,7 +610,6 @@ export default function HomePage() {
         )}
       </header>
 
-      {/* HERO */}
       <section className="hero">
         <div className="hero-copy">
           <Eyebrow>A DIFFERENT KIND OF FURNITURE STORE</Eyebrow>
@@ -582,7 +696,6 @@ export default function HomePage() {
         <span className="hero-background-letter" aria-hidden="true">S</span>
       </section>
 
-      {/* EDITORIAL MARQUEE */}
       <section
         className="editorial-strip"
         id="editorial"
@@ -599,7 +712,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* BENEFITS */}
       <section className="benefits-section section-pad">
         <div className="section-heading benefits-heading">
           <div>
@@ -634,7 +746,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* PRODUCTS */}
       <section className="shop-section section-pad" id="shop">
         <div className="section-heading shop-heading">
           <div>
@@ -763,7 +874,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* COLLECTIONS */}
       <section className="collections-section section-pad" id="collections">
         <div className="section-heading collections-heading">
           <div>
@@ -810,7 +920,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* STATEMENT */}
       <section className="statement-section">
         <span className="statement-mark" aria-hidden="true">“</span>
         <Eyebrow>A NOTE ON GOOD DESIGN</Eyebrow>
@@ -831,7 +940,6 @@ export default function HomePage() {
         <span className="statement-decoration" aria-hidden="true">S.</span>
       </section>
 
-      {/* STORY */}
       <section className="story-section section-pad" id="story">
         <div className="story-visual">
           <img
@@ -878,7 +986,6 @@ export default function HomePage() {
 
       <CustomFurnitureRequest />
 
-      {/* CONTACT CTA */}
       <section className="contact-section" id="contact">
         <div className="contact-topline">
           <span>HAVE A SPACE IN MIND?</span>
@@ -906,7 +1013,6 @@ export default function HomePage() {
         <span className="contact-decoration" aria-hidden="true">S.</span>
       </section>
 
-      {/* FOOTER */}
       <footer className="site-footer">
         <div className="footer-main">
           <div className="footer-brand-column">
@@ -976,7 +1082,6 @@ export default function HomePage() {
         </div>
       </footer>
 
-      {/* FLOATING ENQUIRY */}
       <WhatsAppLink className="floating-whatsapp">
         <span className="whatsapp-dot" />
         <span>LET&apos;S TALK</span>

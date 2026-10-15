@@ -1,6 +1,8 @@
+
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 import { FaInstagram, FaTiktok, FaWhatsapp } from "react-icons/fa";
 import {
   ArrowDownRight,
@@ -12,134 +14,16 @@ import {
 
 const WHATSAPP_NUMBER = "254790753642";
 
-const products = [
-  {
-    id: 1,
-    name: "The Sculpted Lounge",
-    category: "Sofas",
-    price: 48500,
-    oldPrice: 55000,
-    badge: "BESTSELLER",
-    image:
-      "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=1000&q=85",
-    description: "Contemporary comfort with timeless character.",
-  },
-  {
-    id: 2,
-    name: "Nordic Comfort Chair",
-    category: "Chairs",
-    price: 24500,
-    oldPrice: null,
-    badge: "NEW ARRIVAL",
-    image:
-      "https://images.unsplash.com/photo-1567538096630-e0c55bd6374c?auto=format&fit=crop&w=1000&q=85",
-    description: "A considered expression of everyday comfort.",
-  },
-  {
-    id: 3,
-    name: "Minimalist Coffee Table",
-    category: "Tables",
-    price: 32000,
-    oldPrice: 38000,
-    badge: "SPECIAL OFFER",
-    image:
-      "https://images.unsplash.com/photo-1499933374294-4584851497cc?auto=format&fit=crop&w=1000&q=85",
-    description: "Clean lines. Beautiful simplicity.",
-  },
-  {
-    id: 4,
-    name: "The Haven Sofa",
-    category: "Sofas",
-    price: 89500,
-    oldPrice: null,
-    badge: "",
-    image:
-      "https://images.unsplash.com/photo-1550254478-ead40cc54513?auto=format&fit=crop&w=1000&q=85",
-    description: "An inviting centrepiece for modern living.",
-  },
-  {
-    id: 5,
-    name: "Contemporary Accent Chair",
-    category: "Chairs",
-    price: 28500,
-    oldPrice: 33000,
-    badge: "",
-    image:
-      "https://images.unsplash.com/photo-1598300053653-4c7c4e9c5b17?auto=format&fit=crop&w=1000&q=85",
-    description: "A distinctive silhouette for your space.",
-  },
-  {
-    id: 6,
-    name: "Modern Console Table",
-    category: "Tables",
-    price: 36500,
-    oldPrice: null,
-    badge: "DESIGN PICK",
-    image:
-      "https://images.unsplash.com/photo-1494438639946-1ebd1d20bf85?auto=format&fit=crop&w=1000&q=85",
-    description: "Functional design with a refined finish.",
-  },
-{
-    id: 7,
-    name: "The Modern Media Console",
-    category: "TV Stands",
-    price: 28500,
-    oldPrice: null,
-    badge: "NEW ARRIVAL",
-    image: "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1000&q=85",
-    description: "A refined media centre for a beautifully organised living room.",
-  },
-  {
-    id: 8,
-    name: "The Haven Bed",
-    category: "Beds",
-    price: 68500,
-    oldPrice: null,
-    badge: "FEATURED",
-    image: "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1000&q=85",
-    description: "A calm, inviting centrepiece for your bedroom retreat.",
-  },
-  {
-    id: 9,
-    name: "The Signature Wardrobe",
-    category: "Wardrobes",
-    price: 55000,
-    oldPrice: null,
-    badge: "",
-    image: "https://images.unsplash.com/photo-1595428774223-ef52624120d2?auto=format&fit=crop&w=1000&q=85",
-    description: "Practical storage with a clean, contemporary finish.",
-  },
-  {
-    id: 10,
-    name: "The Gather Dining Set",
-    category: "Dining Furniture",
-    price: 75000,
-    oldPrice: null,
-    badge: "DESIGN PICK",
-    image: "https://images.unsplash.com/photo-1617806118233-18e1de247200?auto=format&fit=crop&w=1000&q=85",
-    description: "A welcoming dining centrepiece for everyday meals and gatherings.",
-  },
-  {
-    id: 11,
-    name: "The Executive Desk",
-    category: "Office Furniture",
-    price: 38500,
-    oldPrice: null,
-    badge: "NEW ARRIVAL",
-    image: "https://images.unsplash.com/photo-1518455027359-f3f8164ba6bd?auto=format&fit=crop&w=1000&q=85",
-    description: "A modern workspace designed for focus and productivity.",
-  },
-  {
-    id: 12,
-    name: "The Essential Storage Cabinet",
-    category: "Storage & Cabinets",
-    price: 32500,
-    oldPrice: null,
-    badge: "",
-    image: "https://images.unsplash.com/photo-1594620302200-9a762244a156?auto=format&fit=crop&w=1000&q=85",
-    description: "Versatile storage that keeps your space organised and uncluttered.",
-  },
-];
+type StoreProduct = {
+  id: string;
+  name: string;
+  category: string;
+  price: number;
+  oldPrice: number | null;
+  badge: string;
+  image: string;
+  description: string;
+};
 
 const collections = [
   {
@@ -260,7 +144,6 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
   );
 }
 
-
 function CustomFurnitureRequest() {
   const [furnitureType, setFurnitureType] = useState("Sofa");
   const [customerName, setCustomerName] = useState("");
@@ -282,7 +165,7 @@ function CustomFurnitureRequest() {
       `Dimensions: ${dimensions || "Not specified"}`,
       `Additional details: ${details || "Not specified"}`,
       "",
-      "Please contact me to discuss my request."
+      "Please contact me to discuss my request.",
     ].join("\n");
 
     const whatsappUrl =
@@ -349,7 +232,9 @@ function CustomFurnitureRequest() {
             <option value="TV stand">TV stand / Cabinet</option>
             <option value="Coffee table">Coffee table</option>
             <option value="Office furniture">Office furniture</option>
-            <option value="Other custom furniture">Other custom furniture</option>
+            <option value="Other custom furniture">
+              Other custom furniture
+            </option>
           </select>
         </label>
 
@@ -407,22 +292,129 @@ function CustomFurnitureRequest() {
   );
 }
 
-
 export default function HomePage() {
   const [activeCategory, setActiveCategory] = useState("All");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [products, setProducts] = useState<StoreProduct[]>([]);
+  const [productsLoading, setProductsLoading] = useState(true);
+  const [productsError, setProductsError] = useState(false);
+  const [isStoreAdmin, setIsStoreAdmin] = useState(false);
+
+  // Verify the signed-in user's administrator membership.
+  useEffect(() => {
+    let cancelled = false;
+
+    async function checkAdmin() {
+      try {
+        const supabase = createClient();
+
+        const {
+          data: { user },
+          error: authError,
+        } = await supabase.auth.getUser();
+
+        if (authError || !user) {
+          if (!cancelled) setIsStoreAdmin(false);
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from("admin_users")
+          .select("user_id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (!cancelled) {
+          setIsStoreAdmin(!error && Boolean(data));
+        }
+      } catch {
+        if (!cancelled) setIsStoreAdmin(false);
+      }
+    }
+
+    void checkAdmin();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Load published products from Supabase.
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadProducts() {
+      try {
+        const supabase = createClient();
+
+        const { data, error } = await supabase
+          .from("products")
+          .select(`
+            id,
+            name,
+            slug,
+            description,
+            price,
+            old_price,
+            image_url,
+            image_urls,
+            badge,
+            created_at,
+            categories ( name )
+          `)
+          .eq("is_published", true)
+          .order("created_at", { ascending: false });
+
+        if (error) {
+          throw error;
+        }
+
+        const mappedProducts: StoreProduct[] = (data ?? []).map((row) => {
+          const categoryRelation = row.categories;
+          const category = Array.isArray(categoryRelation)
+            ? categoryRelation[0]
+            : categoryRelation;
+
+          return {
+            id: String(row.id),
+            name: row.name,
+            category: category?.name ?? "Furniture",
+            price: Number(row.price),
+            oldPrice:
+              row.old_price === null ? null : Number(row.old_price),
+            badge: row.badge ?? "",
+            image: row.image_url || row.image_urls?.[0] || "",
+            description: row.description ?? "",
+          };
+        });
+
+        if (!cancelled) {
+          setProducts(mappedProducts);
+          setProductsError(false);
+        }
+      } catch (error) {
+        console.error("Failed to load Smart Furnitures products:", error);
+
+        if (!cancelled) {
+          setProductsError(true);
+        }
+      } finally {
+        if (!cancelled) {
+          setProductsLoading(false);
+        }
+      }
+    }
+
+    void loadProducts();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const categories = [
     "All",
-    "Sofas",
-    "Chairs",
-    "Tables",
-    "TV Stands",
-    "Beds",
-    "Wardrobes",
-    "Dining Furniture",
-    "Office Furniture",
-    "Storage & Cabinets",
+    ...Array.from(new Set(products.map((product) => product.category))).sort(),
   ];
 
   const filteredProducts =
@@ -453,6 +445,12 @@ export default function HomePage() {
             <a className="nav-link" href="#collections">Collections</a>
             <a className="nav-link" href="#story">Our Story</a>
             <a className="nav-link" href="#contact">Contact</a>
+
+            {isStoreAdmin && (
+              <a className="nav-link" href="/admin/dashboard">
+                Admin Dashboard
+              </a>
+            )}
           </nav>
 
           <a href="#shop" className="header-cta">
@@ -472,11 +470,27 @@ export default function HomePage() {
 
         {mobileMenuOpen && (
           <nav className="mobile-nav" aria-label="Mobile navigation">
-            <a href="#home" onClick={closeMenu}>Home <ArrowUpRight size={16} /></a>
-            <a href="#shop" onClick={closeMenu}>Shop <ArrowUpRight size={16} /></a>
-            <a href="#collections" onClick={closeMenu}>Collections <ArrowUpRight size={16} /></a>
-            <a href="#story" onClick={closeMenu}>Our Story <ArrowUpRight size={16} /></a>
-            <a href="#contact" onClick={closeMenu}>Contact <ArrowUpRight size={16} /></a>
+            <a href="#home" onClick={closeMenu}>
+              Home <ArrowUpRight size={16} />
+            </a>
+            <a href="#shop" onClick={closeMenu}>
+              Shop <ArrowUpRight size={16} />
+            </a>
+            <a href="#collections" onClick={closeMenu}>
+              Collections <ArrowUpRight size={16} />
+            </a>
+            <a href="#story" onClick={closeMenu}>
+              Our Story <ArrowUpRight size={16} />
+            </a>
+            <a href="#contact" onClick={closeMenu}>
+              Contact <ArrowUpRight size={16} />
+            </a>
+
+            {isStoreAdmin && (
+              <a href="/admin/dashboard" onClick={closeMenu}>
+                Admin Dashboard <ArrowUpRight size={16} />
+              </a>
+            )}
           </nav>
         )}
       </header>
@@ -569,7 +583,11 @@ export default function HomePage() {
       </section>
 
       {/* EDITORIAL MARQUEE */}
-      <section className="editorial-strip" id="editorial" aria-label="Our design philosophy">
+      <section
+        className="editorial-strip"
+        id="editorial"
+        aria-label="Our design philosophy"
+      >
         <div className="editorial-strip-inner">
           <span>DESIGNED FOR LIVING</span>
           <span className="editorial-symbol">✳</span>
@@ -653,68 +671,87 @@ export default function HomePage() {
         </div>
 
         <div className="product-grid">
-          {filteredProducts.map((product, index) => (
-            <article
-              className="product-card"
-              key={product.id}
-              style={{ animationDelay: `${index * 90}ms` }}
-            >
-              <div className="product-image-wrap">
-                <img
-                  className="product-image"
-                  src={product.image}
-                  alt={product.name}
-                  loading="lazy"
-                />
+          {productsLoading ? (
+            <p role="status" className="product-description">
+              Loading our furniture collection...
+            </p>
+          ) : productsError ? (
+            <p role="alert" className="product-description">
+              We could not load the collection right now. Please try again shortly
+              or contact us on WhatsApp.
+            </p>
+          ) : filteredProducts.length === 0 ? (
+            <p className="product-description">
+              {products.length === 0
+                ? "Our furniture collection is being updated. Please check back soon or contact us for available pieces."
+                : "No products are available in this category yet."}
+            </p>
+          ) : (
+            filteredProducts.map((product, index) => (
+              <article
+                className="product-card"
+                key={product.id}
+                style={{ animationDelay: `${index * 90}ms` }}
+              >
+                <div className="product-image-wrap">
+                  <img
+                    className="product-image"
+                    src={product.image}
+                    alt={product.name}
+                    loading="lazy"
+                  />
 
-                {product.badge && (
-                  <span className="product-badge">{product.badge}</span>
-                )}
+                  {product.badge && (
+                    <span className="product-badge">{product.badge}</span>
+                  )}
 
-                <WhatsAppLink
-                  productName={product.name}
-                  className="product-quick-action"
-                >
-                  ENQUIRE ABOUT THIS PIECE
-                  <ArrowUpRight size={16} />
-                </WhatsAppLink>
+                  <WhatsAppLink
+                    productName={product.name}
+                    className="product-quick-action"
+                  >
+                    ENQUIRE ABOUT THIS PIECE
+                    <ArrowUpRight size={16} />
+                  </WhatsAppLink>
 
-                <span className="product-image-number">
-                  {String(product.id).padStart(2, "0")}
-                </span>
-              </div>
-
-              <div className="product-details">
-                <div className="product-category-row">
-                  <span className="product-category">{product.category}</span>
-                  <span className="product-reference">
-                    SM / {String(product.id).padStart(3, "0")}
+                  <span className="product-image-number">
+                    {String(product.id).padStart(2, "0")}
                   </span>
                 </div>
 
-                <h3>{product.name}</h3>
-                <p className="product-description">{product.description}</p>
-
-                <div className="product-price-row">
-                  <div className="product-prices">
-                    <span className="product-price">{formatPrice(product.price)}</span>
-                    {product.oldPrice && (
-                      <span className="product-old-price">
-                        {formatPrice(product.oldPrice)}
-                      </span>
-                    )}
+                <div className="product-details">
+                  <div className="product-category-row">
+                    <span className="product-category">{product.category}</span>
+                    <span className="product-reference">
+                      SM / {String(product.id).padStart(3, "0")}
+                    </span>
                   </div>
-                  <WhatsAppLink
-                    productName={product.name}
-                    className="product-arrow"
-                    aria-label={`Enquire about ${product.name}`}
-                  >
-                    <ArrowUpRight size={20} strokeWidth={1.5} />
-                  </WhatsAppLink>
+
+                  <h3>{product.name}</h3>
+                  <p className="product-description">{product.description}</p>
+
+                  <div className="product-price-row">
+                    <div className="product-prices">
+                      <span className="product-price">
+                        {formatPrice(product.price)}
+                      </span>
+                      {product.oldPrice && (
+                        <span className="product-old-price">
+                          {formatPrice(product.oldPrice)}
+                        </span>
+                      )}
+                    </div>
+                    <WhatsAppLink
+                      productName={product.name}
+                      className="product-arrow"
+                      aria-label={`Enquire about ${product.name}`}
+                    >
+                      <ArrowUpRight size={20} strokeWidth={1.5} />
+                    </WhatsAppLink>
+                  </div>
                 </div>
-              </div>
-            </article>
-          ))}
+              </article>
+            ))
+          )}
         </div>
 
         <div className="shop-bottom">

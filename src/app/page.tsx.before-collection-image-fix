@@ -1,0 +1,1092 @@
+
+"use client";
+
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { FaTiktok, FaWhatsapp } from "react-icons/fa";
+import {
+  ArrowDownRight,
+  ArrowRight,
+  ArrowUpRight,
+  Menu,
+  X,
+} from "lucide-react";
+
+const WHATSAPP_NUMBER = "254790753642";
+
+type StoreProduct = {
+  id: string;
+  name: string;
+  category: string;
+  price: number;
+  oldPrice: number | null;
+  badge: string;
+  image: string;
+  description: string;
+};
+
+const collections = [
+  {
+    number: "01",
+    title: "Living",
+    subtitle: "Make yourself at home.",
+    image:
+      "https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1400&q=85",
+    className: "collection-living",
+    category: "Sofas",
+  },
+  {
+    number: "02",
+    title: "Bedroom",
+    subtitle: "Your own kind of calm.",
+    image:
+      "https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&w=1000&q=85",
+    className: "collection-bedroom",
+    category: "All",
+  },
+  {
+    number: "03",
+    title: "Dining",
+    subtitle: "Bring everyone together.",
+    image:
+      "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1000&q=85",
+    className: "collection-dining",
+    category: "Tables",
+  },
+];
+
+const benefits = [
+  {
+    number: "01",
+    title: "Curated Design",
+    description:
+      "Considered furniture for spaces that reflect your personality.",
+  },
+  {
+    number: "02",
+    title: "Quality First",
+    description:
+      "Explore distinctive pieces selected with comfort and function in mind.",
+  },
+  {
+    number: "03",
+    title: "Reliable Delivery",
+    description:
+      "Get in touch with our team to discuss delivery arrangements.",
+  },
+  {
+    number: "04",
+    title: "Personal Support",
+    description:
+      "We are here to help you find the right pieces for your home.",
+  },
+];
+
+const formatPrice = (price: number) =>
+  `KSh ${price.toLocaleString("en-KE")}`;
+
+function WhatsAppLink({
+  productName,
+  className = "",
+  children,
+}: {
+  productName?: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const message = productName
+    ? `Hello Smart Furnitures, I would like to enquire about ${productName}.`
+    : "Hello Smart Furnitures, I would like to enquire about your furniture collection.";
+
+  const href = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+
+  return (
+    <a
+      href={href}
+      className={className}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={
+        productName
+          ? `Enquire about ${productName} on WhatsApp`
+          : "Enquire about Smart Furnitures"
+      }
+    >
+      {children}
+    </a>
+  );
+}
+
+function Brand({ footer = false }: { footer?: boolean }) {
+  return (
+    <a
+      href="#home"
+      className={`brand${footer ? " brand-footer" : ""}`}
+      aria-label="Smart Furnitures home"
+    >
+      <span className="brand-symbol">S.</span>
+      <span className="brand-copy">
+        <strong>SMART</strong>
+        <span>FURNITURES</span>
+      </span>
+    </a>
+  );
+}
+
+function Eyebrow({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="eyebrow">
+      <span className="eyebrow-line" />
+      <span>{children}</span>
+    </div>
+  );
+}
+
+function CustomFurnitureRequest() {
+  const [furnitureType, setFurnitureType] = useState("Sofa");
+  const [customerName, setCustomerName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [budget, setBudget] = useState("");
+  const [dimensions, setDimensions] = useState("");
+  const [details, setDetails] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [whatsappMessage, setWhatsappMessage] = useState("");
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (submitting) return;
+
+    const trimmedName = customerName.trim();
+    const trimmedPhone = phone.trim();
+    const trimmedDimensions = dimensions.trim();
+    const trimmedDetails = details.trim();
+
+    if (!trimmedName || !trimmedPhone) {
+      setErrorMessage("Please enter your name and phone number.");
+      return;
+    }
+
+    setSubmitting(true);
+    setSuccessMessage("");
+    setErrorMessage("");
+    setWhatsappMessage("");
+
+    const message = [
+      "CUSTOM FURNITURE REQUEST",
+      "",
+      `Furniture type: ${furnitureType}`,
+      `Budget: ${budget ? `KSh ${budget}` : "Not specified"}`,
+      `Dimensions: ${trimmedDimensions || "Not specified"}`,
+      `Additional details: ${trimmedDetails || "Not specified"}`,
+    ].join("\n");
+
+    const whatsappText = [
+      "Hello Smart Furnitures!",
+      "",
+      "I have submitted a custom furniture request.",
+      "",
+      `Name: ${trimmedName}`,
+      `Phone: ${trimmedPhone}`,
+      `Furniture type: ${furnitureType}`,
+      `Budget: ${budget ? `KSh ${budget}` : "Not specified"}`,
+      `Dimensions: ${trimmedDimensions || "Not specified"}`,
+      `Additional details: ${trimmedDetails || "Not specified"}`,
+      "",
+      "Please contact me to discuss my request.",
+    ].join("\n");
+
+    try {
+      const supabase = createClient();
+
+      const { error } = await supabase
+        .from("customer_enquiries")
+        .insert({
+          customer_name: trimmedName,
+          phone: trimmedPhone,
+          email: null,
+          product_id: null,
+          message,
+          status: "new",
+          enquiry_type: "custom_furniture",
+        });
+
+      if (error) {
+        console.error("Custom furniture submission failed:", error);
+        setErrorMessage(
+          "We couldn't save your request. Please try again or contact us on WhatsApp.",
+        );
+        return;
+      }
+
+      setSuccessMessage(
+        "Your custom furniture request has been submitted successfully.",
+      );
+      setWhatsappMessage(whatsappText);
+
+      setCustomerName("");
+      setPhone("");
+      setFurnitureType("Sofa");
+      setBudget("");
+      setDimensions("");
+      setDetails("");
+    } catch (error) {
+      console.error("Custom furniture submission error:", error);
+      setErrorMessage(
+        "Something went wrong while submitting your request. Please try again.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <section className="custom-request-section section-pad" id="custom-order">
+      <div className="custom-request-intro">
+        <Eyebrow>MADE AROUND YOU</Eyebrow>
+
+        <h2>
+          Your idea.
+          <br />
+          <span>Our craftsmanship.</span>
+        </h2>
+
+        <p>
+          Looking for a particular size, finish or design?
+          Tell us what you have in mind and submit your request
+          directly to our team.
+        </p>
+
+        <div className="custom-request-note">
+          <span className="custom-request-note-line" />
+          <span>LET&apos;S CREATE SOMETHING THAT FEELS LIKE YOU.</span>
+        </div>
+      </div>
+
+      <form className="custom-request-form" onSubmit={handleSubmit}>
+        <div className="custom-form-heading">
+          <span>01 / YOUR PROJECT</span>
+          <span>PERSONAL ENQUIRY</span>
+        </div>
+
+        <label htmlFor="custom-customer-name">
+          YOUR NAME
+          <input
+            id="custom-customer-name"
+            name="customerName"
+            type="text"
+            autoComplete="name"
+            placeholder="Enter your name"
+            value={customerName}
+            onChange={(event) => setCustomerName(event.target.value)}
+            maxLength={120}
+            required
+          />
+        </label>
+
+        <label htmlFor="custom-customer-phone">
+          PHONE NUMBER
+          <input
+            id="custom-customer-phone"
+            name="phone"
+            type="tel"
+            autoComplete="tel"
+            placeholder="e.g. 0712345678"
+            value={phone}
+            onChange={(event) => setPhone(event.target.value)}
+            maxLength={30}
+            required
+          />
+        </label>
+
+        <label htmlFor="custom-furniture-type">
+          WHAT WOULD YOU LIKE?
+          <select
+            id="custom-furniture-type"
+            name="furnitureType"
+            value={furnitureType}
+            onChange={(event) => setFurnitureType(event.target.value)}
+          >
+            <option value="Sofa">Sofa / Couch</option>
+            <option value="Bed">Bed / Bedroom furniture</option>
+            <option value="Dining table">Dining table</option>
+            <option value="Wardrobe">Wardrobe</option>
+            <option value="TV stand">TV stand / Cabinet</option>
+            <option value="Coffee table">Coffee table</option>
+            <option value="Office furniture">Office furniture</option>
+            <option value="Other custom furniture">
+              Other custom furniture
+            </option>
+          </select>
+        </label>
+
+        <div className="custom-form-row">
+          <label htmlFor="custom-budget">
+            ESTIMATED BUDGET (KSH)
+            <input
+              id="custom-budget"
+              name="budget"
+              type="number"
+              min="0"
+              step="100"
+              placeholder="e.g. 35000"
+              value={budget}
+              onChange={(event) => setBudget(event.target.value)}
+            />
+          </label>
+
+          <label htmlFor="custom-dimensions">
+            SIZE / DIMENSIONS
+            <input
+              id="custom-dimensions"
+              name="dimensions"
+              type="text"
+              placeholder="e.g. 6 by 6 feet"
+              value={dimensions}
+              onChange={(event) => setDimensions(event.target.value)}
+              maxLength={300}
+            />
+          </label>
+        </div>
+
+        <label htmlFor="custom-details">
+          TELL US MORE ABOUT YOUR IDEA
+          <textarea
+            id="custom-details"
+            name="details"
+            rows={4}
+            placeholder="Describe your preferred colour, material, design or anything else we should know..."
+            value={details}
+            onChange={(event) => setDetails(event.target.value)}
+            maxLength={3000}
+          />
+        </label>
+
+        {successMessage && (
+          <div role="status" aria-live="polite">
+            <p style={{ color: "#4ade80" }}>{successMessage}</p>
+
+            {whatsappMessage && (
+              <a
+                className="custom-request-submit"
+                href={`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(whatsappMessage)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  textDecoration: "none",
+                  display: "flex",
+                  marginBottom: "16px",
+                }}
+              >
+                <FaWhatsapp size={19} aria-hidden="true" />
+                CONTINUE TO WHATSAPP
+                <ArrowUpRight size={17} aria-hidden="true" />
+              </a>
+            )}
+          </div>
+        )}
+
+        {errorMessage && (
+          <p role="alert" style={{ color: "#f87171" }}>
+            {errorMessage}
+          </p>
+        )}
+
+        <button
+          className="custom-request-submit"
+          type="submit"
+          disabled={submitting}
+          style={{ opacity: submitting ? 0.6 : 1 }}
+        >
+          <FaWhatsapp size={19} aria-hidden="true" />
+          {submitting ? "SAVING REQUEST..." : "SUBMIT CUSTOM REQUEST"}
+          <ArrowUpRight size={17} aria-hidden="true" />
+        </button>
+
+        <p className="custom-form-disclaimer">
+          Your request is saved before you continue to WhatsApp.
+        </p>
+      </form>
+    </section>
+  );
+}
+
+export default function HomePage() {
+  const [activeCategory, setActiveCategory] = useState("All");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [products, setProducts] = useState<StoreProduct[]>([]);
+  const [productsLoading, setProductsLoading] = useState(true);
+  const [productsError, setProductsError] = useState(false);
+  const [isStoreAdmin, setIsStoreAdmin] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function checkAdmin() {
+      try {
+        const supabase = createClient();
+
+        const {
+          data: { user },
+          error: authError,
+        } = await supabase.auth.getUser();
+
+        if (authError || !user) {
+          if (!cancelled) setIsStoreAdmin(false);
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from("admin_users")
+          .select("user_id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (!cancelled) {
+          setIsStoreAdmin(!error && Boolean(data));
+        }
+      } catch {
+        if (!cancelled) setIsStoreAdmin(false);
+      }
+    }
+
+    void checkAdmin();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadProducts() {
+      try {
+        const supabase = createClient();
+
+        const { data, error } = await supabase
+          .from("products")
+          .select(`
+            id,
+            name,
+            slug,
+            description,
+            price,
+            old_price,
+            image_url,
+            image_urls,
+            badge,
+            created_at,
+            categories ( name )
+          `)
+          .eq("is_published", true)
+          .order("created_at", { ascending: false });
+
+        if (error) {
+          throw error;
+        }
+
+        const mappedProducts: StoreProduct[] = (data ?? []).map((row) => {
+          const categoryRelation = row.categories;
+          const category = Array.isArray(categoryRelation)
+            ? categoryRelation[0]
+            : categoryRelation;
+
+          return {
+            id: String(row.id),
+            name: row.name,
+            category: category?.name ?? "Furniture",
+            price: Number(row.price),
+            oldPrice:
+              row.old_price === null ? null : Number(row.old_price),
+            badge: row.badge ?? "",
+            image: row.image_url || row.image_urls?.[0] || "",
+            description: row.description ?? "",
+          };
+        });
+
+        if (!cancelled) {
+          setProducts(mappedProducts);
+          setProductsError(false);
+        }
+      } catch (error) {
+        console.error("Failed to load Smart Furnitures products:", error);
+
+        if (!cancelled) {
+          setProductsError(true);
+        }
+      } finally {
+        if (!cancelled) {
+          setProductsLoading(false);
+        }
+      }
+    }
+
+    void loadProducts();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const categories = [
+    "All",
+    ...Array.from(new Set(products.map((product) => product.category))).sort(),
+  ];
+
+  const filteredProducts =
+    activeCategory === "All"
+      ? products
+      : products.filter((product) => product.category === activeCategory);
+
+  const closeMenu = () => setMobileMenuOpen(false);
+
+  return (
+    <main className="luxury-site" id="home">
+      <div className="announcement-bar">
+        <p>THOUGHTFULLY DESIGNED FURNITURE. TIMELESS BY NATURE.</p>
+        <span>SMART FURNITURES</span>
+      </div>
+
+      <header className="site-header">
+        <div className="header-inner">
+          <Brand />
+
+          <nav className="desktop-nav" aria-label="Main navigation">
+            <a className="nav-link active" href="#home">Home</a>
+            <a className="nav-link" href="#shop">Shop</a>
+            <a className="nav-link" href="#collections">Collections</a>
+            <a className="nav-link" href="#story">Our Story</a>
+            <a className="nav-link" href="#contact">Contact</a>
+
+            {isStoreAdmin && (
+              <a className="nav-link" href="/admin/dashboard">
+                Admin Dashboard
+              </a>
+            )}
+          </nav>
+
+          <a href="#shop" className="header-cta">
+            EXPLORE SHOP <ArrowUpRight size={15} strokeWidth={1.5} />
+          </a>
+
+          <button
+            type="button"
+            className="mobile-menu-toggle"
+            aria-label={mobileMenuOpen ? "Close navigation" : "Open navigation"}
+            aria-expanded={mobileMenuOpen}
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          >
+            {mobileMenuOpen ? <X size={23} /> : <Menu size={23} />}
+          </button>
+        </div>
+
+        {mobileMenuOpen && (
+          <nav className="mobile-nav" aria-label="Mobile navigation">
+            <a href="#home" onClick={closeMenu}>
+              Home <ArrowUpRight size={16} />
+            </a>
+            <a href="#shop" onClick={closeMenu}>
+              Shop <ArrowUpRight size={16} />
+            </a>
+            <a href="#collections" onClick={closeMenu}>
+              Collections <ArrowUpRight size={16} />
+            </a>
+            <a href="#story" onClick={closeMenu}>
+              Our Story <ArrowUpRight size={16} />
+            </a>
+            <a href="#contact" onClick={closeMenu}>
+              Contact <ArrowUpRight size={16} />
+            </a>
+
+            {isStoreAdmin && (
+              <a href="/admin/dashboard" onClick={closeMenu}>
+                Admin Dashboard <ArrowUpRight size={16} />
+              </a>
+            )}
+          </nav>
+        )}
+      </header>
+
+      <section className="hero">
+        <div className="hero-copy">
+          <Eyebrow>A DIFFERENT KIND OF FURNITURE STORE</Eyebrow>
+
+          <h1 className="hero-title">
+            Design
+            <br />
+            that <span>speaks.</span>
+            <br />
+            Silence
+            <br />
+            <span className="outline-text">that lasts.</span>
+          </h1>
+
+          <p className="hero-description">
+            Furniture for the way you want to live.
+            Thoughtful silhouettes, considered details,
+            and spaces that feel unmistakably yours.
+          </p>
+
+          <div className="hero-actions">
+            <a href="#shop" className="button button-light">
+              EXPLORE THE COLLECTION
+              <ArrowUpRight size={17} strokeWidth={1.5} />
+            </a>
+            <a href="#story" className="text-link">
+              OUR PHILOSOPHY <ArrowDownRight size={16} />
+            </a>
+          </div>
+
+          <div className="hero-proof">
+            <div>
+              <strong>01</strong>
+              <span>CONSIDERED DESIGN</span>
+            </div>
+            <span className="proof-divider" />
+            <div>
+              <strong>02</strong>
+              <span>MADE FOR LIVING</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="hero-visual">
+          <div className="hero-image">
+            <img
+              src="https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1800&q=90"
+              alt="Sophisticated contemporary living room with carefully arranged furniture"
+              fetchPriority="high"
+            />
+            <div className="hero-image-shade" />
+
+            <div className="hero-image-top">
+              <span>THE ART OF LIVING</span>
+              <span>NO. 001</span>
+            </div>
+
+            <div className="hero-image-bottom">
+              <div>
+                <span>THE SMART EDIT</span>
+                <p>Form meets feeling.</p>
+              </div>
+              <span className="hero-image-index">01 / 03</span>
+            </div>
+          </div>
+
+          <span className="hero-side-label">SMART FURNITURES · KENYA</span>
+
+          <a href="#collections" className="hero-floating-card">
+            <span className="floating-card-number">01</span>
+            <span className="floating-card-copy">
+              <span>THE NEW STANDARD</span>
+              <strong>Everyday living.</strong>
+            </span>
+            <ArrowUpRight size={20} strokeWidth={1.5} />
+          </a>
+        </div>
+
+        <a className="hero-scroll" href="#editorial">
+          <span>SCROLL TO DISCOVER</span>
+          <span className="scroll-line" />
+        </a>
+
+        <span className="hero-background-letter" aria-hidden="true">S</span>
+      </section>
+
+      <section
+        className="editorial-strip"
+        id="editorial"
+        aria-label="Our design philosophy"
+      >
+        <div className="editorial-strip-inner">
+          <span>DESIGNED FOR LIVING</span>
+          <span className="editorial-symbol">✳</span>
+          <span>BUILT AROUND YOU</span>
+          <span className="editorial-symbol">✳</span>
+          <span>FORM MEETS FUNCTION</span>
+          <span className="editorial-symbol">✳</span>
+          <span>DESIGNED FOR LIVING</span>
+        </div>
+      </section>
+
+      <section className="benefits-section section-pad">
+        <div className="section-heading benefits-heading">
+          <div>
+            <Eyebrow>THE SMART DIFFERENCE</Eyebrow>
+            <h2 className="section-title">
+              More than furniture.
+              <br />
+              <span>A feeling.</span>
+            </h2>
+          </div>
+          <p className="section-intro">
+            Great spaces do more than look good.
+            They change the way everyday life feels.
+          </p>
+        </div>
+
+        <div className="benefits-grid">
+          {benefits.map((benefit) => (
+            <article className="benefit-card" key={benefit.number}>
+              <span className="benefit-number">/ {benefit.number}</span>
+              <span className="benefit-icon" aria-hidden="true">
+                {benefit.number === "01" ? "◇" : null}
+                {benefit.number === "02" ? "✳" : null}
+                {benefit.number === "03" ? "↗" : null}
+                {benefit.number === "04" ? "○" : null}
+              </span>
+              <h3>{benefit.title}</h3>
+              <p>{benefit.description}</p>
+              <span className="benefit-rule" />
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="shop-section section-pad" id="shop">
+        <div className="section-heading shop-heading">
+          <div>
+            <Eyebrow>THE SMART EDIT</Eyebrow>
+            <h2 className="section-title">
+              Pieces worth
+              <br />
+              <span>coming home to.</span>
+            </h2>
+          </div>
+          <p className="section-intro">
+            A considered collection of furniture
+            for the spaces that matter most.
+          </p>
+        </div>
+
+        <div className="product-toolbar">
+          <div className="product-filters" aria-label="Filter products">
+            {categories.map((category) => (
+              <button
+                key={category}
+                type="button"
+                className={`filter-button${activeCategory === category ? " selected" : ""}`}
+                aria-pressed={activeCategory === category}
+                onClick={() => setActiveCategory(category)}
+              >
+                {category}
+              </button>
+            ))}
+          </div>
+          <span className="product-total">
+            {String(filteredProducts.length).padStart(2, "0")} PIECES
+          </span>
+        </div>
+
+        <div className="product-grid">
+          {productsLoading ? (
+            <p role="status" className="product-description">
+              Loading our furniture collection...
+            </p>
+          ) : productsError ? (
+            <p role="alert" className="product-description">
+              We could not load the collection right now. Please try again shortly
+              or contact us on WhatsApp.
+            </p>
+          ) : filteredProducts.length === 0 ? (
+            <p className="product-description">
+              {products.length === 0
+                ? "Our furniture collection is being updated. Please check back soon or contact us for available pieces."
+                : "No products are available in this category yet."}
+            </p>
+          ) : (
+            filteredProducts.map((product, index) => (
+              <article
+                className="product-card"
+                key={product.id}
+                style={{ animationDelay: `${index * 90}ms` }}
+              >
+                <div className="product-image-wrap">
+                  <img
+                    className="product-image"
+                    src={product.image}
+                    alt={product.name}
+                    loading="lazy"
+                  />
+
+                  {product.badge && (
+                    <span className="product-badge">{product.badge}</span>
+                  )}
+
+                  <WhatsAppLink
+                    productName={product.name}
+                    className="product-quick-action"
+                  >
+                    ENQUIRE ABOUT THIS PIECE
+                    <ArrowUpRight size={16} />
+                  </WhatsAppLink>
+
+                  <span className="product-image-number">
+                    {String(product.id).padStart(2, "0")}
+                  </span>
+                </div>
+
+                <div className="product-details">
+                  <div className="product-category-row">
+                    <span className="product-category">{product.category}</span>
+                    <span className="product-reference">
+                      SM / {String(product.id).padStart(3, "0")}
+                    </span>
+                  </div>
+
+                  <h3>{product.name}</h3>
+                  <p className="product-description">{product.description}</p>
+
+                  <div className="product-price-row">
+                    <div className="product-prices">
+                      <span className="product-price">
+                        {formatPrice(product.price)}
+                      </span>
+                      {product.oldPrice && (
+                        <span className="product-old-price">
+                          {formatPrice(product.oldPrice)}
+                        </span>
+                      )}
+                    </div>
+                    <WhatsAppLink
+                      productName={product.name}
+                      className="product-arrow"
+                      aria-label={`Enquire about ${product.name}`}
+                    >
+                      <ArrowUpRight size={20} strokeWidth={1.5} />
+                    </WhatsAppLink>
+                  </div>
+                </div>
+              </article>
+            ))
+          )}
+        </div>
+
+        <div className="shop-bottom">
+          <p>FIND YOUR PIECE. MAKE IT YOURS.</p>
+          <WhatsAppLink className="button button-outline">
+            ASK ABOUT OUR FULL RANGE
+            <ArrowUpRight size={17} />
+          </WhatsAppLink>
+        </div>
+      </section>
+
+      <section className="collections-section section-pad" id="collections">
+        <div className="section-heading collections-heading">
+          <div>
+            <Eyebrow>FIND YOUR SPACE</Eyebrow>
+            <h2 className="section-title">
+              Different rooms.
+              <br />
+              <span>One feeling.</span>
+            </h2>
+          </div>
+          <p className="section-intro">
+            Discover considered pieces for
+            every corner of your home.
+          </p>
+        </div>
+
+        <div className="collections-grid">
+          {collections.map((collection) => (
+            <a
+              href="#shop"
+              className={`collection-card ${collection.className}`}
+              key={collection.number}
+              onClick={() => setActiveCategory(collection.category)}
+            >
+              <img
+                src={collection.image}
+                alt={`${collection.title} furniture collection`}
+                className="collection-image"
+                loading="lazy"
+              />
+              <span className="collection-shade" />
+              <span className="collection-number">/ {collection.number}</span>
+              <div className="collection-caption">
+                <div>
+                  <span>{collection.subtitle}</span>
+                  <h3>{collection.title}</h3>
+                </div>
+                <span className="collection-arrow">
+                  <ArrowUpRight size={22} strokeWidth={1.5} />
+                </span>
+              </div>
+            </a>
+          ))}
+        </div>
+      </section>
+
+      <section className="statement-section">
+        <span className="statement-mark" aria-hidden="true">“</span>
+        <Eyebrow>A NOTE ON GOOD DESIGN</Eyebrow>
+        <h2>
+          Your home should
+          <br />
+          <span>feel like you.</span>
+        </h2>
+        <p>
+          Not a showroom. Not a passing trend.
+          A reflection of who you are and how you live.
+          That is where good furniture begins.
+        </p>
+        <a href="#shop" className="statement-link">
+          FIND YOUR SIGNATURE PIECE
+          <ArrowUpRight size={17} />
+        </a>
+        <span className="statement-decoration" aria-hidden="true">S.</span>
+      </section>
+
+      <section className="story-section section-pad" id="story">
+        <div className="story-visual">
+          <img
+            src="https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?auto=format&fit=crop&w=1400&q=85"
+            alt="A thoughtfully styled contemporary interior"
+            loading="lazy"
+          />
+          <div className="story-image-caption">
+            <span>SPACE TO BE YOURSELF.</span>
+            <span>SMART FURNITURES</span>
+          </div>
+          <span className="story-image-index">S / 2021</span>
+        </div>
+
+        <div className="story-copy">
+          <Eyebrow>OUR POINT OF VIEW</Eyebrow>
+          <h2>
+            Good spaces
+            <br />
+            start with
+            <br />
+            <span>good choices.</span>
+          </h2>
+          <p>
+            Furniture is more than something that fills a room.
+            It is where conversations happen, where you unwind,
+            and where your everyday life takes shape.
+          </p>
+          <p>
+            At Smart Furnitures, we want to help you discover
+            pieces that bring comfort, character, and a sense
+            of belonging into your space.
+          </p>
+          <a href="#shop" className="button button-light">
+            EXPLORE OUR COLLECTION
+            <ArrowUpRight size={17} />
+          </a>
+          <div className="story-signature">
+            <span>S.</span>
+            <p>SMART FURNITURES</p>
+          </div>
+        </div>
+      </section>
+
+      <CustomFurnitureRequest />
+
+      <section className="contact-section" id="contact">
+        <div className="contact-topline">
+          <span>HAVE A SPACE IN MIND?</span>
+          <span>LET&apos;S TALK FURNITURE.</span>
+        </div>
+
+        <div className="contact-content">
+          <Eyebrow>YOUR NEXT CHAPTER STARTS HERE</Eyebrow>
+          <h2>
+            Let&apos;s make
+            <br />
+            <span>room for better.</span>
+          </h2>
+          <p>
+            Have a question about a piece or need help
+            finding the right furniture? Start a conversation
+            with our team.
+          </p>
+          <WhatsAppLink className="button button-light contact-button">
+            START A CONVERSATION
+            <ArrowUpRight size={17} />
+          </WhatsAppLink>
+        </div>
+
+        <span className="contact-decoration" aria-hidden="true">S.</span>
+      </section>
+
+      <footer className="site-footer">
+        <div className="footer-main">
+          <div className="footer-brand-column">
+            <Brand footer />
+            <p>
+              Furniture for the way
+              <br />
+              you want to live.
+            </p>
+            <span className="footer-tagline">GOOD DESIGN. BETTER LIVING.</span>
+
+            <div className="footer-socials" aria-label="Connect with Smart Furnitures">
+              <a
+                href="https://wa.me/254790753642"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Chat with Smart Furnitures on WhatsApp"
+                title="WhatsApp"
+              >
+                <FaWhatsapp size={20} aria-hidden="true" />
+              </a>
+
+              <a
+                href="https://www.tiktok.com/@smartfurnitures?is_from_webapp=1&sender_device=pc"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Follow Smart Furnitures on TikTok"
+                title="TikTok"
+              >
+                <FaTiktok size={18} aria-hidden="true" />
+              </a>
+            </div>
+          </div>
+
+          <div className="footer-column">
+            <h3>EXPLORE</h3>
+            <a href="#home">Home</a>
+            <a href="#shop">Shop furniture</a>
+            <a href="#collections">Collections</a>
+            <a href="#story">Our story</a>
+          </div>
+
+          <div className="footer-column">
+            <h3>NEED HELP?</h3>
+            <a href="#contact">Contact us</a>
+            <a href="#shop">Product enquiries</a>
+            <a href="#contact">Customer support</a>
+          </div>
+
+          <div className="footer-column footer-contact">
+            <h3>LET&apos;S CONNECT</h3>
+            <p>
+              Looking for something specific?
+              Speak to our team about your furniture needs.
+            </p>
+            <WhatsAppLink className="footer-contact-link">
+              START A CONVERSATION
+              <ArrowRight size={15} />
+            </WhatsAppLink>
+          </div>
+        </div>
+
+        <div className="footer-bottom">
+          <p>© {new Date().getFullYear()} SMART FURNITURES. ALL RIGHTS RESERVED.</p>
+          <a href="#home">BACK TO TOP ↑</a>
+          <span>DESIGNED FOR LIVING.</span>
+        </div>
+      </footer>
+
+      <WhatsAppLink className="floating-whatsapp">
+        <span className="whatsapp-dot" />
+        <span>LET&apos;S TALK</span>
+        <ArrowUpRight size={17} />
+      </WhatsAppLink>
+    </main>
+  );
+}
